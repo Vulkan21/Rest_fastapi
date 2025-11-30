@@ -1,7 +1,7 @@
-# Rest_fastapi
-  python3.11 -m venv .venv && source .venv/bin/activate
-  pip install -r requirements.txt
-  uvicorn app.main:app --host 0.0.0.0 --port 8000
+### Docker
+```bash
+docker compose up --build
+```
   http://localhost:8000/terms
 
   docker build -t glossary-api 
