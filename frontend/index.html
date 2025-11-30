@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glossary MindMap</title>
+    <script src="https://unpkg.com/vis-network@9.1.2/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        header {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        #controls {
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        #search {
+            padding: 8px;
+            width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #555;
+        }
+        
+        #container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        #network {
+            flex: 1;
+            border-right: 1px solid #ddd;
+        }
+        
+        #info {
+            width: 350px;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #fafafa;
+        }
+        
+        #info h2 {
+            margin-top: 0;
+        }
+        
+        .term-detail {
+            margin-bottom: 15px;
+        }
+        
+        .term-detail label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .source-link {
+            color: #2196F3;
+            text-decoration: none;
+            display: block;
+            margin: 5px 0;
+            word-break: break-all;
+        }
+        
+        .source-link:hover {
+            text-decoration: underline;
+        }
+        
+        .delete-btn {
+            background-color: #f44336;
+            margin-top: 15px;
+        }
+        
+        .delete-btn:hover {
+            background-color: #d32f2f;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #000;
+        }
+        
+        .modal-content h2 {
+            margin-top: 0;
+        }
+        
+        .modal-content form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .modal-content label {
+            font-weight: bold;
+        }
+        
+        .modal-content input,
+        .modal-content textarea,
+        .modal-content select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Glossary MindMap</h1>
+        <p>Semantic Graph of Terms and Their Relationships</p>
+    </header>
+    
+    <div id="controls">
+        <input type="text" id="search" placeholder="Search terms...">
+        <button onclick="searchTerms()">Search</button>
+        <button onclick="resetView()">Reset View</button>
+        <button onclick="showAddTermModal()">Add Term</button>
+        <button onclick="showAddRelationModal()">Add Relation</button>
+        <button onclick="loadGraph()">Refresh</button>
+    </div>
+    
+    <div id="container">
+        <div id="network"></div>
+        <div id="info">
+            <h2>Term Information</h2>
+            <p>Click on a node to see details</p>
+        </div>
+    </div>
+
+    <!-- Add Term Modal -->
+    <div id="addTermModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addTermModal')">&times;</span>
+            <h2>Add New Term</h2>
+            <form onsubmit="submitTerm(event)">
+                <label>Term Name:</label>
+                <input type="text" id="termName" required>
+                
+                <label>Description:</label>
+                <textarea id="termDescription" rows="4" required></textarea>
+                
+                <label>Sources (one per line, optional):</label>
+                <textarea id="termSources" rows="3" placeholder="https://example.com/source1&#10;https://example.com/source2"></textarea>
+                
+                <button type="submit">Create Term</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Relation Modal -->
+    <div id="addRelationModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addRelationModal')">&times;</span>
+            <h2>Add Relation Between Terms</h2>
+            <form onsubmit="submitRelation(event)">
+                <label>Source Term:</label>
+                <select id="relSourceTerm" required></select>
+                
+                <label>Target Term:</label>
+                <select id="relTargetTerm" required></select>
+                
+                <label>Relation Type:</label>
+                <select id="relationType">
+                    <option value="related">Related</option>
+                    <option value="synonym">Synonym</option>
+                    <option value="antonym">Antonym</option>
+                    <option value="parent">Parent</option>
+                    <option value="child">Child</option>
+                    <option value="example">Example</option>
+                    <option value="reference">Reference</option>
+                </select>
+                
+                <button type="submit">Create Relation</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let network;
+        let allTerms = [];
+        const API_BASE = window.location.origin;
+        
+        async function loadGraph() {
+            try {
+                const response = await fetch(`${API_BASE}/graph`);
+                const data = await response.json();
+                
+                const termsResponse = await fetch(`${API_BASE}/terms`);
+                allTerms = await termsResponse.json();
+                
+                const nodes = new vis.DataSet(
+                    data.nodes.map(node => ({
+                        id: node.id,
+                        label: node.label,
+                        color: {
+                            background: '#4CAF50',
+                            border: '#2E7D32',
+                            highlight: {
+                                background: '#66BB6A',
+                                border: '#1B5E20'
+                            }
+                        },
+                        font: {
+                            color: '#ffffff'
+                        }
+                    }))
+                );
+                
+                const edges = new vis.DataSet(
+                    data.edges.map(edge => ({
+                        id: edge.id,
+                        from: edge.from_id,
+                        to: edge.to_id,
+                        label: edge.type,
+                        arrows: 'to',
+                        color: {
+                            color: '#848484',
+                            highlight: '#333333'
+                        }
+                    }))
+                );
+                
+                const container = document.getElementById('network');
+                const graphData = {
+                    nodes: nodes,
+                    edges: edges
+                };
+                
+                const options = {
+                    nodes: {
+                        shape: 'box',
+                        margin: 10,
+                        widthConstraint: {
+                            maximum: 150
+                        }
+                    },
+                    edges: {
+                        smooth: {
+                            type: 'cubicBezier',
+                            forceDirection: 'horizontal',
+                            roundness: 0.4
+                        },
+                        font: {
+                            size: 11,
+                            align: 'middle'
+                        }
+                    },
+                    physics: {
+                        enabled: true,
+                        stabilization: {
+                            iterations: 200
+                        },
+                        barnesHut: {
+                            gravitationalConstant: -2000,
+                            centralGravity: 0.3,
+                            springLength: 200
+                        }
+                    },
+                    interaction: {
+                        hover: true
+                    }
+                };
+                
+                network = new vis.Network(container, graphData, options);
+                
+                network.on('click', function(params) {
+                    if (params.nodes.length > 0) {
+                        const nodeId = params.nodes[0];
+                        showTermInfo(nodeId);
+                    }
+                });
+                
+                console.log(`Loaded ${data.nodes.length} nodes and ${data.edges.length} edges`);
+                
+            } catch (error) {
+                console.error('Error loading graph:', error);
+                alert('Failed to load graph. Make sure the API is running.');
+            }
+        }
+        
+        function showTermInfo(termId) {
+            const term = allTerms.find(t => t.id === termId);
+            if (!term) return;
+            
+            let sourcesHtml = '';
+            if (term.sources && term.sources.length > 0) {
+                sourcesHtml = `
+                    <div class="term-detail">
+                        <label>Sources:</label>
+                        ${term.sources.map(src => `<a href="${src}" target="_blank" class="source-link">🔗 ${src}</a>`).join('')}
+                    </div>
+                `;
+            }
+            
+            const infoDiv = document.getElementById('info');
+            infoDiv.innerHTML = `
+                <h2>${term.term}</h2>
+                <div class="term-detail">
+                    <label>Description:</label>
+                    <p>${term.description}</p>
+                </div>
+                ${sourcesHtml}
+                <button class="delete-btn" onclick="deleteTerm('${term.term}')">Delete Term</button>
+            `;
+        }
+        
+        async function searchTerms() {
+            const query = document.getElementById('search').value.toLowerCase();
+            if (!query) return;
+            
+            const results = allTerms.filter(t => 
+                t.term.toLowerCase().includes(query) || 
+                t.description.toLowerCase().includes(query)
+            );
+            
+            if (results.length > 0) {
+                network.selectNodes([results[0].id]);
+                network.focus(results[0].id, {
+                    scale: 1.5,
+                    animation: true
+                });
+                showTermInfo(results[0].id);
+            } else {
+                alert('No terms found');
+            }
+        }
+        
+        function resetView() {
+            network.fit({
+                animation: true
+            });
+            document.getElementById('search').value = '';
+            document.getElementById('info').innerHTML = `
+                <h2>Term Information</h2>
+                <p>Click on a node to see details</p>
+            `;
+        }
+        
+        function showAddTermModal() {
+            document.getElementById('addTermModal').style.display = 'block';
+        }
+        
+        async function showAddRelationModal() {
+            const terms = allTerms;
+            
+            const sourceSelect = document.getElementById('relSourceTerm');
+            const targetSelect = document.getElementById('relTargetTerm');
+            
+            sourceSelect.innerHTML = terms.map(t => `<option value="${t.term}">${t.term}</option>`).join('');
+            targetSelect.innerHTML = terms.map(t => `<option value="${t.term}">${t.term}</option>`).join('');
+            
+            document.getElementById('addRelationModal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        async function submitTerm(event) {
+            event.preventDefault();
+            
+            const term = document.getElementById('termName').value;
+            const description = document.getElementById('termDescription').value;
+            const sourcesText = document.getElementById('termSources').value;
+            
+            const sources = sourcesText
+                .split('\n')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+            
+            const payload = {
+                term,
+                description,
+                sources: sources.length > 0 ? sources : null
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/terms`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to create term');
+                }
+                
+                alert('Term created successfully!');
+                closeModal('addTermModal');
+                event.target.reset();
+                loadGraph();
+            } catch (error) {
+                console.error('Error creating term:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function submitRelation(event) {
+            event.preventDefault();
+            
+            const source_term = document.getElementById('relSourceTerm').value;
+            const target_term = document.getElementById('relTargetTerm').value;
+            const relation_type = document.getElementById('relationType').value;
+            
+            const payload = { source_term, target_term, relation_type };
+            
+            try {
+                const response = await fetch(`${API_BASE}/relations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to create relation');
+                }
+                
+                alert('Relation created successfully!');
+                closeModal('addRelationModal');
+                loadGraph();
+            } catch (error) {
+                console.error('Error creating relation:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function deleteTerm(termName) {
+            if (!confirm(`Are you sure you want to delete term "${termName}"?`)) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/terms/${encodeURIComponent(termName)}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete term');
+                }
+                
+                alert('Term deleted successfully!');
+                document.getElementById('info').innerHTML = `
+                    <h2>Term Information</h2>
+                    <p>Click on a node to see details</p>
+                `;
+                loadGraph();
+            } catch (error) {
+                console.error('Error deleting term:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        document.getElementById('search').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchTerms();
+            }
+        });
+        
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+        
+        loadGraph();
+    </script>
+</body>
+</html>

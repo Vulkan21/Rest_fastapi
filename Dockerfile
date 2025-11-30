@@ -12,6 +12,7 @@ COPY requirements.txt /app/
 RUN pip install -r requirements.txt
 
 COPY app /app/app
+COPY frontend /app/frontend
 
 EXPOSE 8000
 
