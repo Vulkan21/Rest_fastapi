@@ -9,9 +9,7 @@
   docker compose up --build
 
   скриншоты 
-![main](main.png)
-![List_term.png](List_term.png)
-![create_term](create_term.png)
-![Get_term](Get_term.png)
-![update_term](update_term.png)
-![Delete_term](Delete_term.png)
+![main](main.jpg)
+![List_term.png](add.jpg)
+![create_term](add_plus.jpg)
+![Get_term](add_relation.jpg)
